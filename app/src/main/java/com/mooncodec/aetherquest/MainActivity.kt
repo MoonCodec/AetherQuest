@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.mooncodec.aetherquest.model.Item
 import com.mooncodec.aetherquest.model.ItemType
+import com.mooncodec.aetherquest.model.Quest
 import com.mooncodec.aetherquest.ui.theme.AetherQuestTheme
 import com.mooncodec.aetherquest.viewmodel.MainViewModel
 
@@ -62,6 +63,7 @@ fun PlayerHomeScreen(
     modifier: Modifier = Modifier
 ) {
     val player by viewModel.player.collectAsState()
+    val quests by viewModel.quests.collectAsState()
     val context = LocalContext.current
     val progress = if (player.xpToNextLevel > 0) {
         player.currentXp.toFloat() / player.xpToNextLevel.toFloat()
@@ -72,57 +74,46 @@ fun PlayerHomeScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Top
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
-
+        // --- PROFIL JOUEUR ---
         Text(
             text = player.name,
-            style = MaterialTheme.typography.headlineLarge
+            style = MaterialTheme.typography.headlineMedium
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = "Niveau ${player.level} — Or : ${player.gold} 🪙",
+            style = MaterialTheme.typography.titleMedium
         )
 
         Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Niveau ${player.level}",
-            style = MaterialTheme.typography.titleLarge
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         LinearProgressIndicator(
             progress = { progress },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(12.dp)
+                .height(8.dp)
         )
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         Text(
             text = "XP : ${player.currentXp} / ${player.xpToNextLevel}",
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodySmall
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Or : ${player.gold} 🪙",
-            style = MaterialTheme.typography.bodyLarge
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         // --- SECTION INVENTAIRE ---
         Text(
             text = "Inventaire (${player.inventory.size})",
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.align(Alignment.Start)
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         if (player.inventory.isEmpty()) {
             Text(
@@ -141,18 +132,34 @@ fun PlayerHomeScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // --- ACTIONS & BOUTIQUE ---
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+        // --- SECTION QUÊTES / HABITUDES ---
+        Text(
+            text = "Quêtes du jour",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.align(Alignment.Start)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Button(onClick = { viewModel.addXp(40) }) {
-                Text("+40 XP")
+            items(quests) { quest ->
+                QuestCard(
+                    quest = quest,
+                    onComplete = { viewModel.completeQuest(quest.id) }
+                )
             }
+        }
 
-            Button(onClick = {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // --- BOUTIQUE DE TEST ---
+        Button(
+            onClick = {
                 val potion = Item(
                     id = System.currentTimeMillis().toString(),
                     name = "Potion de soin",
@@ -164,9 +171,10 @@ fun PlayerHomeScreen(
                 if (!success) {
                     Toast.makeText(context, "Pas assez d'or !", Toast.LENGTH_SHORT).show()
                 }
-            }) {
-                Text("Acheter Potion (25 🪙)")
-            }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Acheter Potion (25 🪙)")
         }
     }
 }
@@ -180,14 +188,50 @@ fun ItemCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = item.name, style = MaterialTheme.typography.labelLarge)
+            Text(text = item.name, style = MaterialTheme.typography.labelMedium)
             Text(text = item.description, style = MaterialTheme.typography.bodySmall)
-            Spacer(modifier = Modifier.height(6.dp))
-            Button(onClick = onUse, modifier = Modifier.height(32.dp)) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Button(onClick = onUse, modifier = Modifier.height(28.dp)) {
                 Text("Utiliser", style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+@Composable
+fun QuestCard(
+    quest: Quest,
+    onComplete: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = quest.title, style = MaterialTheme.typography.titleSmall)
+                Text(text = quest.description, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = "Récompense : +${quest.difficulty.xpReward} XP / +${quest.difficulty.goldReward} 🪙",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Button(
+                onClick = onComplete,
+                enabled = !quest.isCompleted
+            ) {
+                Text(if (quest.isCompleted) "Fait !" else "Valider")
             }
         }
     }
