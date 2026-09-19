@@ -7,6 +7,7 @@ data class Player(
     val level: Int =1,
     val currentXp: Int = 0,
     val gold: Int = 0,
+    val inventory: List<Item> = emptyList()
 ) {
     val xpToNextLevel: Int
         get() = (100 * level.toDouble().pow(1.2)).toInt()
