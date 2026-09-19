@@ -1,0 +1,24 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/build
+.externalNativeBuild
+.cxx
+local.properties
+
+# Exclusions complémentaires
+/captures
+*.log
+
+# Fichiers système et IDE
+.DS_Store
+Thumbs.db
+
+# Fichiers générés localement
+/out/
