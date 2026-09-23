@@ -1,6 +1,9 @@
 package com.mooncodec.aetherquest.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.mooncodec.aetherquest.data.UserPreferencesRepository
 import com.mooncodec.aetherquest.model.Item
 import com.mooncodec.aetherquest.model.Player
 import com.mooncodec.aetherquest.model.Quest
@@ -9,9 +12,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlin.math.pow
 
-class MainViewModel : ViewModel() {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val repository = UserPreferencesRepository(application)
 
     private val _player = MutableStateFlow(Player())
     val player: StateFlow<Player> = _player.asStateFlow()
@@ -23,6 +29,26 @@ class MainViewModel : ViewModel() {
         )
     )
     val quests: StateFlow<List<Quest>> = _quests.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            repository.playerData.collect { (name, level, xp) ->
+                _player.update { it.copy(name = name, level = level, currentXp = xp) }
+            }
+        }
+        viewModelScope.launch {
+            repository.playerGold.collect { gold ->
+                _player.update { it.copy(gold = gold) }
+            }
+        }
+    }
+
+    private fun persistPlayer() {
+        viewModelScope.launch {
+            val p = _player.value
+            repository.savePlayerStats(p.name, p.level, p.currentXp, p.gold)
+        }
+    }
 
     fun addXp(amount: Int) {
         _player.update { currentPlayer ->
@@ -36,17 +62,9 @@ class MainViewModel : ViewModel() {
                 xpNeeded = (100 * newLevel.toDouble().pow(1.2)).toInt()
             }
 
-            currentPlayer.copy(
-                level = newLevel,
-                currentXp = newXp
-            )
+            currentPlayer.copy(level = newLevel, currentXp = newXp)
         }
-    }
-
-    fun addGold(amount: Int) {
-        _player.update { currentPlayer ->
-            currentPlayer.copy(gold = currentPlayer.gold + amount)
-        }
+        persistPlayer()
     }
 
     fun buyItem(item: Item): Boolean {
@@ -58,6 +76,7 @@ class MainViewModel : ViewModel() {
                     inventory = currentPlayer.inventory + item
                 )
             }
+            persistPlayer()
             return true
         }
         return false
@@ -69,16 +88,7 @@ class MainViewModel : ViewModel() {
             updatedInventory.remove(item)
             currentPlayer.copy(inventory = updatedInventory)
         }
-    }
-
-    fun addQuest(title: String, description: String, difficulty: QuestDifficulty) {
-        val newQuest = Quest(
-            id = System.currentTimeMillis().toString(),
-            title = title,
-            description = description,
-            difficulty = difficulty
-        )
-        _quests.update { currentQuests -> currentQuests + newQuest }
+        persistPlayer()
     }
 
     fun completeQuest(questId: String) {
@@ -90,7 +100,8 @@ class MainViewModel : ViewModel() {
                 }
             }
             addXp(quest.difficulty.xpReward)
-            addGold(quest.difficulty.goldReward)
+            _player.update { it.copy(gold = it.gold + quest.difficulty.goldReward) }
+            persistPlayer()
         }
     }
 }
